@@ -1,0 +1,6 @@
+*.swp
+*.out
+*.iml
+.idea
+junit.xml
+clipboard*.*
