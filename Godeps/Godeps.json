@@ -1,5 +1,5 @@
 {
-	"ImportPath": "github.com/kunapuli09/go-benchmarks",
+	"ImportPath": "github.com/kunapuli09/ad-benchmarks",
 	"GoVersion": "go1.8",
 	"GodepVersion": "v79",
 	"Deps": [
@@ -7,6 +7,11 @@
 			"ImportPath": "github.com/Shopify/sarama",
 			"Comment": "v1.11.0",
 			"Rev": "0fb560e5f7fbcaee2f75e3c34174320709f69944"
+		},
+		{
+			"ImportPath": "github.com/bsm/sarama-cluster",
+			"Comment": "v2.1.5-7-g436987f",
+			"Rev": "436987f75dbbf1d438849a79f277ddf49d25914a"
 		},
 		{
 			"ImportPath": "github.com/davecgh/go-spew/spew",
@@ -50,21 +55,9 @@
 			"Rev": "1f30fe9094a513ce4c700b9a54458bbb0c96996c"
 		},
 		{
-			"ImportPath": "github.com/samuel/go-zookeeper/zk",
-			"Rev": "1d7be4effb13d2d908342d349d71a284a7542693"
-		},
-		{
 			"ImportPath": "github.com/satori/go.uuid",
 			"Comment": "v1.1.0-6-gb061729",
 			"Rev": "b061729afc07e77a8aa4fad0a2fd840958f1942a"
-		},
-		{
-			"ImportPath": "github.com/wvanbergen/kafka/consumergroup",
-			"Rev": "bc265fedb9ff5b5c5d3c0fdcef4a819b3523d3ee"
-		},
-		{
-			"ImportPath": "github.com/wvanbergen/kazoo-go",
-			"Rev": "968957352185472eacb69215fa3dbfcfdbac1096"
 		},
 		{
 			"ImportPath": "gopkg.in/redis.v5",

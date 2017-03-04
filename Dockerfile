@@ -3,12 +3,11 @@ MAINTAINER Krishna Kunapuli <krishna_kunapuli@starpathit.com>
 
 # setup env
 ENV projectdir $GOPATH/src/github.com/kunapuli09/ad-benchmarks/
-ENV zookeepers "10.0.0.131:2181"
-ENV reset_offsets "false"
+#ENV zookeepers "10.0.0.131:2181"
+ENV broker "10.0.0.131:9092"
 ENV events_topic "ad-events"
-ENV group_id "ad-golang"
+ENV group_id "ad-golang1"
 ENV workers 5
-ENV flush_interval "500ms"
 ENV restart_interval "5m"
 ENV redis_url "http://localhost:6379"
 ENV redis_database "ads"

@@ -12,7 +12,7 @@ type AdEvent struct {
 	AdType    string `json:"ad_type"`
 	EventType string `json:"event_type"`
 	IPAddress string `json:"ip_address"`
-	EventTime string `json:event_time`
+	EventTime string `json:"event_time"`
 	UserId    string    `json:"user_id"`
 	PageId    string    `json:"page_id"`
 	AdId      string    `json:"ad_id"`

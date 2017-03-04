@@ -8,6 +8,7 @@ import (
 	"os"
 	"fmt"
     "github.com/satori/go.uuid"
+	"log"
 )
 
 /**
@@ -71,12 +72,14 @@ func NewCampaignProcessor(db *RedisDB) *CampaignProcessor {
 }
 
 func (processor *CampaignProcessor) Prepare() {
-	flushTicker := time.NewTicker(1000)
+	flushTicker := time.NewTicker(1000 * time.Millisecond)
 	for {
 		select {
 		case <-flushTicker.C:
 		//flush the cache
-			processor.flushWindows()
+		processor.flushWindows()
+		default:
+			time.Sleep(500 * time.Millisecond)
 		}
 	}
 }
@@ -89,6 +92,7 @@ func (processor *CampaignProcessor) Execute(campaignId string, eventTime string)
 		window.SeenCount++
 		newPair := NewCampaignWindowPair(campaignId, window)
 		processor.NeedFlush = append(processor.NeedFlush, newPair)
+		log.Printf("Execute: Added data for flushing")
 		processor.ProcessedCount++
 	}
 
@@ -106,6 +110,7 @@ func (processor *CampaignProcessor) writeWindow(campaign string, win *Window) {
 		windowListUUID= val1[0].(string)
 		if windowListUUID == "" {
 			windowListUUID = uuid.NewV4().String()
+			fmt.Fprintf(os.Stdout, "writing to redis windowListUUID=%s\n", windowListUUID)
 			processor.FlushClient.conn.HSet(campaign, "windows", windowListUUID)
 		}
 		processor.FlushClient.conn.LPush(windowListUUID, win.Timestamp)
@@ -119,7 +124,9 @@ func (processor *CampaignProcessor) writeWindow(campaign string, win *Window) {
 
 func (processor *CampaignProcessor) flushWindows() {
 	for _, pair := range processor.NeedFlush {
-		processor.writeWindow(pair.Campaign, pair.CampaignWindow)
+		if pair != nil{
+			processor.writeWindow(pair.Campaign, pair.CampaignWindow)
+		}
 	}
 }
 
@@ -176,7 +183,6 @@ func (cache *RedisAdCampaignCache) Execute(adId string) string {
 		campaignId, _ = cache.QueryClient.conn.Get(adId).Result()
 		if campaignId == "" {
 			return ""
-
 		} else {
 			cache.AdToCampaign[adId] = campaignId
 		}
