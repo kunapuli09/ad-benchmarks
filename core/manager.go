@@ -35,6 +35,7 @@ type Manager struct {
 	eventsTopic     string
 	workers         int
 	restartInterval time.Duration
+	logInterval     time.Duration
 	redis           *common.RedisDB
 	//channel for persisted events with SeenCount metric
 	metrics chan *model.MetricEvent
@@ -72,11 +73,15 @@ func NewManager(r *common.RedisDB) *Manager {
 	if err != nil {
 		panic(fmt.Errorf("Error parsing $workers: %s", err.Error()))
 	}
-	
 
 	restartInterval, err := time.ParseDuration(os.Getenv("restart_interval"))
 	if err != nil {
 		panic(fmt.Errorf("Error parsing $restart_interval: %s", err.Error()))
+	}
+	
+	logInterval, err := time.ParseDuration(os.Getenv("log_interval"))
+	if err != nil {
+		panic(fmt.Errorf("Error parsing $log_interval: %s", err.Error()))
 	}
 
 	lc := common.NewRedisAdCampaignCache(r)
@@ -87,6 +92,7 @@ func NewManager(r *common.RedisDB) *Manager {
 		eventsTopic,
 		int(workers),
 		restartInterval,
+		logInterval,
 		r,
 		make(chan *model.MetricEvent, 10000),
 		make(chan *model.AdEvent),
@@ -103,12 +109,12 @@ func (m *Manager) Restart() {
 }
 
 func (m *Manager) Start() {
-	//for i := 0; i < m.workers; i++ {
+	for i := 0; i < m.workers; i++ {
 		go m.processor.Prepare()
 		go m.startMetricConsumer(m.metrics)
 		go m.startEnrichment(m.enrich)
 		go m.startFilter(m.filter)
-	//}
+	}
 	go m.startErrorConsumer(m.consumer.Errors())
 	go m.startMessageConsumer(m.consumer.Messages())
 	
@@ -136,29 +142,34 @@ func (m *Manager) startErrorConsumer(in <-chan error) {
 
 func (m *Manager) startMessageConsumer(in <-chan *sarama.ConsumerMessage) {
 	restartTicker := time.NewTicker(m.restartInterval)
-	msgCount := int64(0)
+	logTicker := time.NewTicker(m.logInterval)
+	adEventCount, msgCount := int64(0), int64(0)
 	for {
 		select {
 		case msg, ok := <-in:
 			if ok {
 				msgCount++
-
 				
 				// handle the message
 				switch msg.Topic {
 				case m.eventsTopic:
 					//fmt.Fprintf(os.Stdout, "%s/%d/%d\t%s\t%s\n", msg.Topic, msg.Partition, msg.Offset, msg.Key, msg.Value)
+					adEventCount++
 					go m.manageAdEvent(msg.Value)
 				default:
 					log.Fatalf("Unexpected message recieved on topic %s: %v", msg.Topic, string(msg.Value))
 				}
-				m.consumer.MarkOffset(msg, "") // mark message as processed
+				// mark message as processed
+				m.consumer.MarkOffset(msg, "")
 
 			} else {
-				log.Printf("Inbound ConsumerMessage channel has closed, terminating manager")
+				log.Println("Inbound ConsumerMessage channel has closed, terminating manager")
 				in = nil
 				return
 			}
+		case <- logTicker.C:
+			log.Printf("AdEvent Count in the last one minute %d", adEventCount)
+			adEventCount = int64(0)
 		case <-restartTicker.C:
 			if msgCount == 0 {
 				log.Fatalf("Kafka Consumer received 0 messages during the previous %s: restarting consumer", m.restartInterval.String())
@@ -175,10 +186,9 @@ func (m *Manager) startMetricConsumer(in chan *model.MetricEvent) {
 		select {
 		case metric, ok := <-in:
 			if ok {
-				log.Printf("Persisted Metric for CampaignId %s", metric.CampaignId)
 				m.processor.Execute(metric.CampaignId, metric.Metric.Timestamp)
 			} else {
-				log.Printf("Inbound metric channel has closed, terminating manager")
+				log.Println("Inbound metric channel has closed, terminating manager")
 				in = nil
 				return
 			}
@@ -226,7 +236,6 @@ func (m *Manager) manageAdEvent(msg []byte) {
 		log.Fatalf("Error Unmarshalling payload: %v", err)
 		return
 	}
-	//log.Printf("Parsed Event %s", adEvent)
 	m.filter <- adEvent
 }
 
@@ -239,10 +248,8 @@ func (m *Manager) filterEvent(adEvent *model.AdEvent) {
 //lookup in local cache and retrieve from redis
 func (m *Manager) enrichEvent(projectedEvent *model.ProjectedEvent) {
 	CampaignId := m.localCache.Execute(projectedEvent.AdId)
-	//log.Printf("Projected Event %v for CampaignId=%s", projectedEvent, CampaignId)
 	if CampaignId != "" {
 		enrichedEvent := &model.MetricEvent{CampaignId:CampaignId, Metric:&common.Window{Timestamp:projectedEvent.EventTime,SeenCount:0}}
-		log.Printf("Enriched Event %s", enrichedEvent)
 		m.metrics <- enrichedEvent
 	}
 }

@@ -8,9 +8,12 @@ import (
 
 	"github.com/kunapuli09/ad-benchmarks/core"
 	"github.com/kunapuli09/ad-benchmarks/common"
+	//"runtime"
 )
 
 func main() {
+	////this setting is for 2CPU machine (Ex: mac book pro 2016 with touch bar)
+	//runtime.GOMAXPROCS(2)
 	log.Print("Initialize go-benchmarks")
 	os.Setenv("zookeepers", "10.0.0.131:2181")
 	os.Setenv("group_id", "advertising-golang")
@@ -20,6 +23,7 @@ func main() {
 	os.Setenv("restart_interval", "5m")
 	os.Setenv("redis_urls", "http://localhost:6379")
 	os.Setenv("redis_database", "ads")
+	os.Setenv("log_interval", "1m")
 
 	// manage graceful shutdown.
 	signals := make(chan os.Signal, 1)

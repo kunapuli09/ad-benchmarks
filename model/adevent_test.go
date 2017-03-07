@@ -29,7 +29,7 @@ func TestParseJson(t *testing.T) {
 
 //sample redis test
 func TestRedis(t *testing.T) {
-	//t.Skip()
+	t.Skip()
 	client := redis.NewClient(&redis.Options{
 		Addr:     "10.0.0.131:6379",
 		Password: "", // no password set

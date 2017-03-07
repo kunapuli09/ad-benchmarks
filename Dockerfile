@@ -7,7 +7,8 @@ ENV projectdir $GOPATH/src/github.com/kunapuli09/ad-benchmarks/
 ENV broker "10.0.0.131:9092"
 ENV events_topic "ad-events"
 ENV group_id "ad-golang1"
-ENV workers 5
+ENV workers 4
+ENV log_interval "5m"
 ENV restart_interval "5m"
 ENV redis_url "10.0.0.131:6379"
 ENV redis_database "ads"
