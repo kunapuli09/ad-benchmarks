@@ -1,20 +1,20 @@
 package common
 
 import (
-	
+	"errors"
+	"fmt"
+	"github.com/satori/go.uuid"
 	"gopkg.in/redis.v5"
+	"log"
+	"os"
 	"strconv"
 	"time"
-	"os"
-	"fmt"
-    "github.com/satori/go.uuid"
-	"log"
 )
 
 /**
 time series logic to bucket and store events to redis
 influxdb would be great to address this problem
- */
+*/
 const (
 	TIME_DIVISOR int64 = 10000
 )
@@ -47,7 +47,7 @@ func NewRedisDB() *RedisDB {
 	client := redis.NewClient(&redis.Options{
 		Addr:     os.Getenv("redis_url"),
 		Password: "", // no password set
-		DB:       0, // use default DB
+		DB:       0,  // use default DB
 	})
 	return &RedisDB{client}
 }
@@ -62,12 +62,12 @@ func NewWindow(timestamp string, seenCount int64) *Window {
 
 func NewCampaignProcessor(db *RedisDB) *CampaignProcessor {
 	return &CampaignProcessor{
-		QueryClient: db,
-		FlushClient: db,
+		QueryClient:      db,
+		FlushClient:      db,
 		LastWindowMillis: time.Now().UnixNano() / int64(time.Millisecond),
-		ProcessedCount: int64(0),
-		CampaignWindows: make(map[int64]map[string]*Window, 10),
-		NeedFlush: make([]*CampaignWindowPair, 10000),
+		ProcessedCount:   int64(0),
+		CampaignWindows:  make(map[int64]map[string]*Window, 10),
+		NeedFlush:        make([]*CampaignWindowPair, 10000),
 	}
 }
 
@@ -76,8 +76,8 @@ func (processor *CampaignProcessor) Prepare() {
 	for {
 		select {
 		case <-flushTicker.C:
-		//flush the cache
-		processor.flushWindows()
+			//flush the cache
+			processor.flushWindows()
 		default:
 			time.Sleep(500 * time.Millisecond)
 		}
@@ -98,16 +98,56 @@ func (processor *CampaignProcessor) Execute(campaignId string, eventTime string)
 
 }
 
-func (processor *CampaignProcessor) writeWindow(campaign string, win *Window) {
+func (processor *CampaignProcessor) writeWindow(campaign string, win *Window) error {
 	var windowUUID string
 	var windowListUUID string
-	val, _ := processor.FlushClient.conn.HMGet(campaign, win.Timestamp).Result()
-	windowUUID = val[0].(string)
+	val, err := processor.FlushClient.conn.HMGet(campaign, win.Timestamp).Result()
+	if err == redis.Nil {
+		log.Println("windowUUID does not exists for Campaign=", campaign)
+		return err
+	} else if err != nil {
+		log.Printf("Error to fetch windowUUID -- CampaignId=%s", campaign)
+		return err
+	}
+	if nil == val {
+		return errors.New("windowsUUID is nil")
+	} else {
+		log.Printf("Cache hit -- windowsUUID=%v", val[0])
+		if nil != val[0]{
+			val0, ok := val[0].(string)
+			if ok{
+				windowUUID = val0
+			}else{
+				windowUUID = ""
+			}
+		}
+		
+	}
 	if windowUUID == "" {
 		windowUUID = uuid.NewV4().String()
 		processor.FlushClient.conn.HSet(campaign, win.Timestamp, windowUUID)
-		val1,_ := processor.FlushClient.conn.HMGet(campaign, "windows").Result()
-		windowListUUID= val1[0].(string)
+		val1, err := processor.FlushClient.conn.HMGet(campaign, "windows").Result()
+		if err == redis.Nil {
+			fmt.Println("windowListUUID does not exists for Campaign=", campaign)
+			return err
+		} else if err != nil {
+			log.Printf("Error to fetch windowListUUID -- CampaignId=%s", campaign)
+			return err
+		}
+		if nil == val1 {
+			return errors.New("windowListUUID is nil")
+		} else {
+			log.Printf("Cache hit -- windowListUUID=%v", val1[0])
+			if nil != val[0]{
+				val10, ok := val1[0].(string)
+				if ok{
+					windowUUID = val10
+				}else{
+					windowUUID = ""
+				}
+			}
+			
+		}
 		if windowListUUID == "" {
 			windowListUUID = uuid.NewV4().String()
 			fmt.Fprintf(os.Stdout, "writing to redis windowListUUID=%s\n", windowListUUID)
@@ -117,21 +157,21 @@ func (processor *CampaignProcessor) writeWindow(campaign string, win *Window) {
 	}
 	processor.FlushClient.conn.HIncrBy(windowUUID, "seen_count", win.SeenCount)
 	win.SeenCount = 0
-	processor.FlushClient.conn.HSet(windowUUID, "time_updated", time.Now().UnixNano() / int64(time.Millisecond))
-	processor.FlushClient.conn.LPush("time_updated", time.Now().UnixNano() / int64(time.Millisecond))
-
+	processor.FlushClient.conn.HSet(windowUUID, "time_updated", time.Now().UnixNano()/int64(time.Millisecond))
+	processor.FlushClient.conn.LPush("time_updated", time.Now().UnixNano()/int64(time.Millisecond))
+	return nil
 }
 
 func (processor *CampaignProcessor) flushWindows() {
 	for _, pair := range processor.NeedFlush {
-		if pair != nil{
+		if pair != nil {
 			processor.writeWindow(pair.Campaign, pair.CampaignWindow)
 		}
 	}
 }
 
 func (processor *CampaignProcessor) redisGetWindow(timeBucket int64, timeDivisor int64) *Window {
-	return NewWindow(fmt.Sprintf("%d",timeBucket * TIME_DIVISOR), 0)
+	return NewWindow(fmt.Sprintf("%d", timeBucket*TIME_DIVISOR), 0)
 }
 
 func (processor *CampaignProcessor) getWindow(timeBucket int64, campaignId string) *Window {
@@ -140,6 +180,7 @@ func (processor *CampaignProcessor) getWindow(timeBucket int64, campaignId strin
 		//redis server lookup
 		redisWindow := processor.redisGetWindow(timeBucket, TIME_DIVISOR)
 		if redisWindow != nil {
+			bucketMap = make(map[string]*Window)
 			processor.CampaignWindows[timeBucket] = bucketMap
 			bucketMap[campaignId] = redisWindow
 			return redisWindow
@@ -157,7 +198,7 @@ func (processor *CampaignProcessor) getWindow(timeBucket int64, campaignId strin
 			return redisWindow
 		}
 		// Otherwise, if nothing in redis:
-		window = NewWindow(fmt.Sprintf("%d",timeBucket * TIME_DIVISOR), 0)
+		window = NewWindow(fmt.Sprintf("%d", timeBucket*TIME_DIVISOR), 0)
 		bucketMap[campaignId] = redisWindow
 
 	}
@@ -172,22 +213,27 @@ type RedisAdCampaignCache struct {
 
 func NewRedisAdCampaignCache(db *RedisDB) *RedisAdCampaignCache {
 	return &RedisAdCampaignCache{
-		QueryClient:db,
-		AdToCampaign:make(map[string]string),
+		QueryClient:  db,
+		AdToCampaign: make(map[string]string),
 	}
 }
 
 func (cache *RedisAdCampaignCache) Execute(adId string) string {
-	campaignId := cache.AdToCampaign[adId]
-	if campaignId == "" {
-		campaignId, _ = cache.QueryClient.conn.Get(adId).Result()
+	localCampaignId := cache.AdToCampaign[adId]
+	if localCampaignId == "" {
+		campaignId, err := cache.QueryClient.conn.Get(adId).Result()
+		if err == redis.Nil {
+			fmt.Println("CampaignId does not exists for adId=", adId)
+		} else if err != nil {
+			log.Printf("Cache hit Error -- CampaignId=%s", err)
+		} else {
+			log.Printf("Cache hit -- CampaignId=%s", campaignId)
+		}
 		if campaignId == "" {
 			return ""
 		} else {
 			cache.AdToCampaign[adId] = campaignId
 		}
 	}
-	return campaignId
+	return localCampaignId
 }
-
-

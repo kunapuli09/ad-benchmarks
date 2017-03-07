@@ -17,8 +17,6 @@ func main() {
 	os.Setenv("reset_offsets", "false")
 	os.Setenv("events_topic", "ad-events")
 	os.Setenv("workers", "5")
-	os.Setenv("flush_interval", "500ms")
-	os.Setenv("stats_interval", "1m")
 	os.Setenv("restart_interval", "5m")
 	os.Setenv("redis_urls", "http://localhost:6379")
 	os.Setenv("redis_database", "ads")

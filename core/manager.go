@@ -239,7 +239,7 @@ func (m *Manager) filterEvent(adEvent *model.AdEvent) {
 //lookup in local cache and retrieve from redis
 func (m *Manager) enrichEvent(projectedEvent *model.ProjectedEvent) {
 	CampaignId := m.localCache.Execute(projectedEvent.AdId)
-	log.Printf("Projected Event %s for CampaignId=%s", projectedEvent, CampaignId)
+	//log.Printf("Projected Event %v for CampaignId=%s", projectedEvent, CampaignId)
 	if CampaignId != "" {
 		enrichedEvent := &model.MetricEvent{CampaignId:CampaignId, Metric:&common.Window{Timestamp:projectedEvent.EventTime,SeenCount:0}}
 		log.Printf("Enriched Event %s", enrichedEvent)

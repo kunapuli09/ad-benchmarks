@@ -9,7 +9,7 @@ ENV events_topic "ad-events"
 ENV group_id "ad-golang1"
 ENV workers 5
 ENV restart_interval "5m"
-ENV redis_url "http://localhost:6379"
+ENV redis_url "10.0.0.131:6379"
 ENV redis_database "ads"
 
 # install godeps

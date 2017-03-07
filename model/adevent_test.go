@@ -29,14 +29,14 @@ func TestParseJson(t *testing.T) {
 
 //sample redis test
 func TestRedis(t *testing.T) {
-	t.Skip()
+	//t.Skip()
 	client := redis.NewClient(&redis.Options{
 		Addr:     "10.0.0.131:6379",
 		Password: "", // no password set
 		DB:       0, // use default DB
 	})
 	
-	val, err := client.Get("campaigns").Result()
+	val, err := client.Get("428b3221-11d6-4c32-99dd-17ebeecae67f").Result()
 	
 	if err == redis.Nil {
 		fmt.Println("campaigns does not exists", err)
