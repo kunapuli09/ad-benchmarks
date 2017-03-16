@@ -53,9 +53,17 @@ func NewManager(r *common.RedisDB) *Manager {
 	config := cluster.NewConfig()
 	config.Consumer.Return.Errors = true
 	config.Group.Return.Notifications = true
+	os.Setenv("broker", "10.0.0.131:9092")
+	os.Setenv("group_id", "ad-golang1")
+	os.Setenv("reset_offsets", "false")
+	os.Setenv("events_topic", "ad-events")
+	os.Setenv("workers", "5")
+	os.Setenv("restart_interval", "5m")
+	os.Setenv("log_interval", "1m")
 	eventsTopic := os.Getenv("events_topic")
 	// init consumer
 	brokers := []string{os.Getenv("broker")}
+	fmt.Println(brokers[0])
 	topics := []string{eventsTopic}
 	c, err := cluster.NewConsumer(brokers, os.Getenv("group_id"), topics, config)
 	if err != nil {
